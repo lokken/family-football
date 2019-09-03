@@ -39,14 +39,6 @@ type chooseBonusPage struct {
 	Cards            []types.Bonus
 }
 
-type gameCard struct {
-	AwayTeam  string
-	HomeTeam  string
-	Stadium   string
-	Location  string
-	EventTime time.Time
-}
-
 func tmpl(which string) string {
 	_, filePath, _, _ := runtime.Caller(0)
 	filename := fmt.Sprintf("%s.html", which)
@@ -87,7 +79,6 @@ func chooseGamesHandler(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	var gameCards []gameCard
 	var games []types.Game
 	gobbler.LoadGames(&games)
 	loc, _ := time.LoadLocation("Local")
@@ -106,15 +97,6 @@ func chooseGamesHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		game.Time = t.In(loc).Format("Monday, Jan _2 2006 3:04 PM MST")
-		card := gameCard{
-			AwayTeam:  game.AwayTeam,
-			HomeTeam:  game.HomeTeam,
-			Stadium:   game.Stadium,
-			Location:  game.Location,
-			EventTime: t,
-		}
-		gameCards = append(gameCards, card)
-		fmt.Printf("game: %s\n\n", game)
 	}
 	// fmt.Printf("games: %s\n", games)
 
