@@ -2,14 +2,15 @@ package gobbler
 
 import (
 	"encoding/gob"
-	"path/filepath"
-	"path"
 	"fmt"
-	"github.com/lokken/family-football/types"
+	"io"
 	"log"
 	"os"
+	"path"
+	"path/filepath"
 	"runtime"
-	"io"
+
+	"github.com/lokken/family-football/types"
 )
 
 func vault() string {
@@ -76,6 +77,38 @@ func LoadGames(games *[]types.Game) {
 
 	enc := gob.NewDecoder(file)
 	err = enc.Decode(games)
+	if err != nil {
+		log.Fatal("encode error: ", err)
+	}
+}
+
+func SaveBonuses(bonuses []types.Bonus) {
+	p := vault()
+	filename := path.Join(p, "bonuses.gob")
+
+	file, err := os.Create(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	enc := gob.NewEncoder(file)
+	err = enc.Encode(bonuses)
+	if err != nil {
+		log.Fatal("encode error: ", err)
+	}
+}
+
+func LoadBonuses(bonuses *[]types.Bonus) {
+	p := vault()
+	filename := path.Join(p, "bonuses.gob")
+
+	file, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	enc := gob.NewDecoder(file)
+	err = enc.Decode(bonuses)
 	if err != nil {
 		log.Fatal("encode error: ", err)
 	}

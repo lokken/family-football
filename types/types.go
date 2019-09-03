@@ -7,3 +7,9 @@ type Game struct {
 	Stadium  string
 	Location string
 }
+
+type Bonus struct {
+	Qualifier  string
+	Quantifier string
+	Type       string
+}
