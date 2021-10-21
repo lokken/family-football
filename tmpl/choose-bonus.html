@@ -8,30 +8,154 @@
 		<main>
 			<header>
 				<h1>{{.Page.Title}}</h1>
-				<div id="chosen-bonus">
+				<div id="chosen-cards">
 					<!-- Will contain up to three chosen game blocks -->
+					<bonus-card data-id="" style="visibility: hidden">
+						<span slot="bonus-card-qualifier"></span>
+						<span slot="bonus-card-quantifier"></span>
+					</bonus-card>
+					<bonus-card data-id="" style="visibility: hidden">
+						<span slot="bonus-card-qualifier"></span>
+						<span slot="bonus-card-quantifier"></span>
+					</bonus-card>
+					<bonus-card data-id="" style="visibility: hidden">
+						<span slot="bonus-card-qualifier"></span>
+						<span slot="bonus-card-quantifier"></span>
+					</bonus-card>
 				</div>
 			</header>
+
 			<nav>
 				<ul>
 					<li><a href="#">{{.Page.CancelButtonText}}</a></li>
 					<li><a href="#">{{.Page.NextButtonText}}</a></li>
 				</ul>
 			</nav>
-			<div>
-				{{range .Page.Cards}}
-				<article>
-					<h2>{{.Type}}</h2>
-					<ul>
-						<li>{{.Qualifier}}</li>
-						<li>{{.Quantifier}}</li>
-					</ul>
-				</article>
+
+			<div id="bonus-cards">
+				{{range $key, $value := .Page.Cards}}
+				<h2>{{$key}}</h2>
+				{{range $value}}
+				<bonus-card data-id="{{.ID}}">
+					<span slot="bonus-card-qualifier">{{.Qualifier}}</span>
+					<span slot="bonus-card-quantifier">{{.Quantifier}}</span>
+				</bonus-card>
+				{{end}}
 				{{end}}
 			</div>
+
 			<footer>
 				<p>{{.Site.Copywrite}}</p>
 			</footer>
 		</main>
+		<template id="bonus-card-template">
+			<style>
+				article {
+					color: white;
+					background-color: #666;
+					padding: 5px;
+					border: solid indianred 2px;
+				}
+			</style>
+			<article>
+				<ul>
+					<li><slot name="bonus-card-qualifier">My default text</slot></li>
+					<li><slot name="bonus-card-quantifier">My default text</slot></li>
+				</ul>
+			</article>
+		</template>
+		<script>
+			var store = {
+				cards: {},
+				chosen: [],
+			};
+			var cards = JSON.parse(`{{.Page.Cards}}`);
+			for (let type in cards) {
+				for (let i = 0; i < cards[type].length; ++i) {
+					let card = cards[type][i];
+					store.cards[card.ID] = card;
+				}
+			}
+
+			function renderChosen() {
+				let chosenCards = document.querySelector("#chosen-cards").children;
+				for (var i = 0; i < chosenCards.length; ++i) {
+					let chosen = chosenCards[i];
+					if (store.chosen[i]) {
+						let c = store.cards[store.chosen[i]];
+						chosen.dataset.id = c.ID;
+						let qualSpan = chosen.querySelector("span[slot=\"bonus-card-qualifier\"]");
+						qualSpan.textContent = c.Qualifier;
+						let quantSpan = chosen.querySelector("span[slot=\"bonus-card-quantifier\"]");
+						quantSpan.textContent = c.Quantifier;
+						chosen.style.visibility = "visible";
+					} else {
+						chosen.dataset.id = "";
+						let spans = chosen.querySelector("span");
+						for (let j = 0; j < spans.length; ++j) {
+							span[j].textContent = "";
+						}
+						chosen.style.visibility = "hidden";
+					}
+				}
+
+				let bonusCards = document.querySelectorAll("#bonus-cards > bonus-card");
+				for (var i = 0; i < bonusCards.length; ++i) {
+					let cardEl = bonusCards[i];
+					if (store.chosen.indexOf(cardEl.dataset.id) > -1) {
+						cardEl.shadowRoot.querySelector("article").style["background-color"] = "green";
+					} else {
+						cardEl.shadowRoot.querySelector("article").style["background-color"] = "";
+					}
+				}
+			}
+
+			/*
+			var bonusCardTemplate = function (data) {
+				var html = `
+					<bonus-card data-id="${data.ID}">
+						<span slot="bonus-card-qualifier">${data.Qualifier}</span>
+						<span slot="bonus-card-quantifier">${data.Quantifier}</span>
+					</bonus-card>`;
+
+				return html.trim();
+			}
+
+			var p = new Proxy(store.chosen, {
+				set: function(obj, prop, value) {
+					console.log(obj);
+					console.log(prop);
+					console.log(value);
+					var chosenBonus = document.getElementById('chosen-cards')
+					chosenBonus.innerHTML = bonusCardTemplate(store.cards[value]);
+				}
+			});
+			*/
+
+			customElements.define('bonus-card',
+				class extends HTMLElement {
+					constructor() {
+						super();
+						let template = document.getElementById('bonus-card-template');
+						let templateContent = template.content;
+
+						const shadowRoot = this.attachShadow({mode: 'open'});
+						shadowRoot.appendChild(templateContent.cloneNode(true));
+				}
+			});
+
+			var el = document.querySelector("#bonus-cards");
+			el.addEventListener('click', function (event) {
+				if (store.chosen.length < 3) {
+					var closest = event.target.closest('bonus-card');
+					var cardId = closest.dataset.id;
+					// p.push(cardId);
+					if (store.chosen.indexOf(cardId) === -1) {
+						store.chosen.push(cardId);
+						renderChosen();
+					}
+				}
+			});
+		</script>
 	</body>
 </html>

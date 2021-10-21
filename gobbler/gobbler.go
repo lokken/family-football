@@ -82,7 +82,35 @@ func LoadGames(games *[]types.Game) {
 	}
 }
 
-func SaveBonuses(bonuses []types.Bonus) {
+func PutBonuses(bonusi map[string]*types.Bonus) {
+	p := vault()
+	filename := path.Join(p, "bonuses.gob")
+
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var bonuses map[string]*types.Bonus
+	enc := gob.NewDecoder(f)
+	err = enc.Decode(&bonuses)
+	if err != nil {
+		log.Fatal("encode error: ", err)
+	}
+
+	for kbi, bi := range bonusi {
+		if bonuses[kbi] == nil {
+			bonuses[kbi] = bi
+		} else {
+			bonuses[kbi].Type = bi.Type
+			bonuses[kbi].Qualifier = bi.Qualifier
+			bonuses[kbi].Quantifier = bi.Quantifier
+		}
+	}
+	SaveBonuses(bonuses)
+}
+
+func SaveBonuses(bonuses map[string]*types.Bonus) {
 	p := vault()
 	filename := path.Join(p, "bonuses.gob")
 
@@ -98,7 +126,7 @@ func SaveBonuses(bonuses []types.Bonus) {
 	}
 }
 
-func LoadBonuses(bonuses *[]types.Bonus) {
+func LoadBonuses(bonuses *map[string]*types.Bonus) {
 	p := vault()
 	filename := path.Join(p, "bonuses.gob")
 
@@ -107,9 +135,9 @@ func LoadBonuses(bonuses *[]types.Bonus) {
 		log.Fatal(err)
 	}
 
-	enc := gob.NewDecoder(file)
-	err = enc.Decode(bonuses)
+	dec := gob.NewDecoder(file)
+	err = dec.Decode(bonuses)
 	if err != nil {
-		log.Fatal("encode error: ", err)
+		log.Fatal("decode error: ", err)
 	}
 }

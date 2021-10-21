@@ -5,11 +5,15 @@
 		<title>{{.Site.Title}}</title>
 	</head>
 	<body>
-		<main>
+		<script src="http://localhost:8098"></script>
+		<main id="app">
 			<header>
 				<h1>{{.Page.Title}}</h1>
 				<div id="chosen-games">
 					<!-- Will contain up to three chosen game blocks -->
+					<div v-for="chosen in games.chosen">
+						<span v-html="chosen"></span>
+					</div>
 				</div>
 			</header>
 			<nav>
@@ -20,7 +24,7 @@
 			</nav>
 			<div>
 				{{range .Page.Cards}}
-				<article>
+				<article v-on:click="chooseGame">
 					<ul>
 						<li>{{.AwayTeam}}</li>
 						<li>{{.HomeTeam}}</li>
@@ -35,5 +39,24 @@
 				<p>{{.Site.Copywrite}}</p>
 			</footer>
 		</main>
+
+		<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+		<script>
+			var app = new Vue({
+				delimiters: ['\\\\', '//'],
+				el: '#app',
+				data: {
+					games: {
+						chosen: [],
+					},
+				},
+				methods: {
+					chooseGame: function (event) {
+						let newNode = event.currentTarget.cloneNode(true);
+						this.games.chosen.push(newNode)
+					},
+				},
+			});
+		</script>
 	</body>
 </html>

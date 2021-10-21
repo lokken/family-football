@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>{{.Site.Title}}</title>
+	</head>
+	<body>
+		<main>
+			<header>
+				<h1>{{.Page.Title}}</h1>
+			</header>
+
+			<div id="bonus-card-new">
+				<div>
+					<button name="bonus-card-new">New Bonus</button>
+				</div>
+				<div>
+					<bonus-card data-id="" style="visibility: hidden">
+						<textarea slot="bonus-card-qualifier" rows="5" column="33"
+							minlength="10" maxlength="256"
+							placeholder="Enter qualifier."
+							required></textarea>
+						<textarea slot="bonus-card-quantifier" rows="5" column="33"
+							minlength="10" maxlength="256"
+							placeholder="Enter quantifier."
+							required></textarea>
+					</bonus-card>
+				</div>
+			</div>
+
+			<div id="bonus-cards">
+				{{range $key, $value := .Page.Cards}}
+				<h2>{{$key}}</h2>
+				{{range $value}}
+				<bonus-card data-id="{{.ID}}">
+					<textarea slot="bonus-card-qualifier" rows="5" column="33"
+						minlength="10" maxlength="256"
+						placeholder="Enter qualifier."
+						required>{{.Qualifier}}</textarea>
+					<textarea slot="bonus-card-quantifier" rows="5" column="33"
+						minlength="10" maxlength="256"
+						placeholder="Enter quantifier."
+						required>{{.Quantifier}}</textarea>
+				</bonus-card>
+				{{end}}
+				{{end}}
+			</div>
+
+			<footer>
+				<p>{{.Site.Copywrite}}</p>
+			</footer>
+		</main>
+		<template id="bonus-card-template">
+			<style>
+				form {
+					color: white;
+					background-color: #666;
+					padding: 5px;
+					border: solid indianred 2px;
+				}
+			</style>
+			<form>
+				<article>
+					<ul>
+						<li><slot name="bonus-card-qualifier"></slot></li>
+						<li><slot name="bonus-card-quantifier"></slot></li>
+					</ul>
+				</article>
+				<button name="bonus-card-save">Save</button>
+				<button name="bonus-card-reset">Reset</button>
+				<button name="bonus-card-delete">Delete</button>
+			</form>
+		</template>
+		<script>
+			customElements.define('bonus-card',
+				class extends HTMLElement {
+					constructor() {
+						super();
+						let template = document.getElementById('bonus-card-template');
+						let templateContent = template.content;
+						const shadowRoot = this.attachShadow({mode: 'open'});
+						shadowRoot.appendChild(templateContent.cloneNode(true));
+				}
+			});
+
+			var store = {
+				bonusCards: {
+					cards: {},
+					render() {
+						let bonusCards = document.querySelectorAll("#bonus-cards > bonus-card");
+						bonusCards = Array.from(bonusCards);
+						if (bonusCards.length > this.cards.length) {
+							while (bonusCards.length > this.cards.length) {
+								bonusCards.pop();
+							}
+						} else if (bonusCards.length < this.cards.length) {
+							while (bonusCards.length < this.cards.length) {
+								bonusCards.push(bonusCards[0].cloneNode(true));
+							}
+						}
+
+						let i = 0;
+						for (let cardId in this.cards) {
+							let c = this.cards[cardId];
+							bonusCards[i].dataset.id = c.ID;
+							let qualSpan = bonusCards[i].querySelector("span[slot=\"bonus-card-qualifier\"]");
+							qualSpan.textContent = c.Qualifier;
+							let quantSpan = bonusCards[i].querySelector("span[slot=\"bonus-card-quantifier\"]");
+							quantSpan.textContent = c.Quantifier;
+							++i;
+						}
+					}
+				},
+				newCard: {},
+				actions: {
+					save(bonus) {
+						(async function (bonuses) {
+							try {
+								let response = await fetch('/configure-bonus', {
+									method: 'POST',
+									headers: { "Content-Type": "application/json" },
+									body: JSON.stringify(bonuses),
+								});
+							} catch (e) {
+								console.error(e);
+
+								delete this.cards[bonus.ID];
+								render();
+							}
+						})([bonus]);
+
+						this.cards[bonus.ID] = bonus;
+						render();
+					},
+					remove() {
+					},
+				}
+			};
+
+			function render() {
+			}
+
+			var cards = JSON.parse(`{{.Page.Cards}}`);
+			for (let type in cards) {
+				for (let i = 0; i < cards[type].length; ++i) {
+					let card = cards[type][i];
+					store.cards[card.ID] = card;
+				}
+			}
+
+			var el = document.querySelector("#bonus-card-new");
+			el.addEventListener('click', function (event) {
+			});
+
+			var el = document.querySelector("#bonus-cards");
+			el.addEventListener('click', function (event) {
+				var shadowEl = event.composedPath().shift();
+				if (shadowEl) {
+					switch (shadowEl.name) {
+						case 'bonus-card-save':
+							event.preventDefault();
+
+							var id = event.target.dataset.id;
+							var qual = event.target.querySelector('textarea[slot="bonus-card-qualifier"]').value;
+							var quant = event.target.querySelector('textarea[slot="bonus-card-quantifier"]').value;
+							var bonuses = [{ID: id, Qualifier: qual, Quantifier: quant}];
+							(async function (bonuses) {
+								try {
+									let response = await fetch('/configure-bonus', {
+										method: 'POST',
+										headers: { "Content-Type": "application/json" },
+										body: JSON.stringify(bonuses),
+									});
+								} catch (e) {
+									console.error(e);
+								}
+							})(bonuses);
+
+							break;
+						case 'bonus-card-reset':
+							event.preventDefault();
+
+							var bonusCardId = event.target.dataset.id;
+							var storeCard = store.cards[bonusCardId];
+							var qualEl = event.target.querySelector('textarea[slot="bonus-card-qualifier"]');
+							qualEl.value = storeCard.Qualifier;
+							var quantEl = event.target.querySelector('textarea[slot="bonus-card-quantifier"]');
+							quantEl.value = storeCard.Quantifier;
+
+							break;
+						case 'bonus-card-delete':
+							event.preventDefault();
+
+							var bonusCardId = event.target.dataset.id;
+
+							(async function (bonuses) {
+								try {
+									let response = await fetch('/configure-bonus', {
+										method: 'POST',
+										headers: { "Content-Type": "application/json", "X-Command": "delete" },
+										body: JSON.stringify(bonuses),
+									});
+								} catch (e) {
+									console.error(e);
+								}
+							})([store.cards[bonusCardId]]);
+
+							delete store.cards[bonusCardId];
+							if (event.target) {
+								event.target.remove();
+							}
+
+							break;
+					}
+				}
+			});
+		</script>
+	</body>
+</html>

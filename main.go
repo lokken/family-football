@@ -1,13 +1,16 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/lokken/family-football/gobbler"
@@ -15,8 +18,18 @@ import (
 )
 
 func main() {
-	http.HandleFunc("/choose-games/", chooseGamesHandler)
-	http.HandleFunc("/choose-bonus/", chooseBonusHandler)
+	// http.HandleFunc("/week/", weekHandler)
+	// http.HandleFunc("/leaderboard/", leaderboardHandler)
+	// http.HandleFunc("/player/", playerHandler)
+
+	// http.HandleFunc("/choose-games/", chooseGamesHandler)
+	// http.HandleFunc("/choose-bonus/", chooseBonusHandler)
+	http.HandleFunc("/configure-bonus/", configureBonusHandler)
+	http.HandleFunc("/configure-bonus", configureBonusHandler)
+
+	http.HandleFunc("/delete-bonus/", deleteBonusHandler)
+	http.HandleFunc("/delete-bonus", deleteBonusHandler)
+
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
@@ -36,7 +49,12 @@ type chooseBonusPage struct {
 	Title            string
 	CancelButtonText string
 	NextButtonText   string
-	Cards            []types.Bonus
+	Cards            map[string][]types.Bonus
+}
+
+type configureBonusPage struct {
+	Title string
+	Cards map[string][]types.Bonus
 }
 
 func tmpl(which string) string {
@@ -45,14 +63,101 @@ func tmpl(which string) string {
 	return path.Join(filepath.Dir(filePath), "tmpl", filename)
 }
 
+func weekHandler(w http.ResponseWriter, r *http.Request) {
+	// path := r.URL.Path[len("/week/"):]
+}
+
+func leaderboardHandler(w http.ResponseWriter, r *http.Request) {
+}
+
+func playerHandler(w http.ResponseWriter, r *http.Request) {
+}
+
+func deleteBonusHandler(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	fmt.Printf("%s\n", r.Form)
+}
+
+func configureBonusHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		command := strings.ToLower(r.Header.Get("X-Command"))
+		if command == "" {
+			http.Error(w, "Bad X-Command", http.StatusMultipleChoices)
+			return
+		}
+
+		var data []types.Bonus
+		body, _ := ioutil.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &data)
+
+		var bonuses map[string]*types.Bonus
+		gobbler.LoadBonuses(&bonuses)
+
+		fmt.Printf("%s\n", body)
+		fmt.Printf("%s\n", data)
+		switch command {
+		case "save":
+			for _, b := range data {
+				bonuses[b.ID].Qualifier = b.Qualifier
+				bonuses[b.ID].Quantifier = b.Quantifier
+			}
+			gobbler.PutBonuses(bonuses)
+		case "delete":
+			for _, b := range data {
+				delete(bonuses, b.ID)
+			}
+			gobbler.SaveBonuses(bonuses)
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+		w.Header().Set("Content-Type", "application/json")
+
+	} else if r.Method == "GET" {
+		tmpl, _ := template.ParseFiles(tmpl("configure-bonus-formpost"))
+
+		var bonuses map[string]*types.Bonus
+		gobbler.LoadBonuses(&bonuses)
+
+		bonusMap := make(map[string][]types.Bonus)
+		for id, b := range bonuses {
+			b.ID = id
+			bonusMap[b.Type] = append(bonusMap[b.Type], *b)
+		}
+
+		page := struct {
+			Site site
+			Page configureBonusPage
+		}{
+			Site: site{Title: "Family Football 2019-20", Copywrite: "© Keith Lokken"},
+			Page: configureBonusPage{
+				Title: "Configure Bonuses",
+				Cards: bonusMap,
+			},
+		}
+
+		_ = tmpl.Execute(w, page)
+	} else {
+		http.Error(w, "Invalid", http.StatusMethodNotAllowed)
+		return
+	}
+}
+
 func chooseBonusHandler(w http.ResponseWriter, r *http.Request) {
-	tmpl, err := template.ParseFiles(tmpl("choose-bonus"))
-	if err != nil {
-		panic(err)
+	if r.Method != "GET" {
+		http.Error(w, "Invalid", http.StatusMethodNotAllowed)
+		return
 	}
 
-	var bonuses []types.Bonus
+	tmpl, _ := template.ParseFiles(tmpl("choose-bonus"))
+
+	var bonuses map[string]*types.Bonus
 	gobbler.LoadBonuses(&bonuses)
+
+	bonusMap := make(map[string][]types.Bonus)
+	for id, b := range bonuses {
+		b.ID = id
+		bonusMap[b.Type] = append(bonusMap[b.Type], *b)
+	}
 
 	page := struct {
 		Site site
@@ -63,14 +168,11 @@ func chooseBonusHandler(w http.ResponseWriter, r *http.Request) {
 			Title:            "Choose Bonus",
 			CancelButtonText: "Cancel",
 			NextButtonText:   "Complete",
-			Cards:            bonuses,
+			Cards:            bonusMap,
 		},
 	}
 
-	err = tmpl.Execute(w, page)
-	if err != nil {
-		panic(err)
-	}
+	_ = tmpl.Execute(w, page)
 }
 
 func chooseGamesHandler(w http.ResponseWriter, r *http.Request) {
